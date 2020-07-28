@@ -19,22 +19,22 @@
         {
             "regexp":"(\\beth\\b|\\bethereum\\b)",
             "regexpFlags": "i",
-            "name":"ETH Address",
+            "name":"ETH Address"
         },
         {
             "regexp":"e?mail",
             "regexpFlags": "i",
-            "name":"Email",
+            "name":"Email"
         },
         {
             "regexp":"(allocation|amount)",
             "regexpFlags": "i",
-            "name":"Allocation",
+            "name":"Allocation"
         },
         {
             "regexp":"(discord)",
             "regexpFlags": "i",
-            "name":"Discord name",
+            "name":"Discord name"
         }
     ]
 }
