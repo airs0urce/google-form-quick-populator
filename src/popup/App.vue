@@ -1,10 +1,10 @@
 <template >
     <div class="root">
-        <h1>Google Forms Populator</h1>
+        <h1>Google Forms Quick Populator</h1>
         <hr>
-        <h2>Form model</h2>
+        <h2>Form model JSON</h2>
         <div class="body">
-            <label>Paste form model code here:</label>
+            <label>Paste form model JSON here:</label>
             <div><textarea v-model="formModelJSON"></textarea></div>
             <div v-html="parseStateHtml"></div>
         </div>
@@ -21,6 +21,43 @@
             <div class="note">
                 Fields will be auto-populated after you open Google Form.
             </div>
+            <div class="note">
+                (Right now we populate only input and textarea fields. WARNING: It doesn't send form automatically)
+            </div>
+
+            <div class="test-interface-btn-wrapper">
+                <button class="test-interface-btn" v-if="!enableTest" @click="enableTest = true">Show test interface</button>
+                <button class="test-interface-btn" v-if="enableTest" @click="enableTest = false">Hide test interface</button>    
+            </div>
+            
+
+            <div v-if="enableTest">
+                <h2>Test label match</h2>
+                <div class="body">
+                    <div>
+                        Here you can select field and write text that you think will be in Google Form near field which you need to populate.
+                    </div>
+                    <div>
+                        <div>Field definition from form model:</div>
+                        <select v-model="testField">
+                            <option v-for="formField in formFields" :value="formField">{{formField.name}}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div>Field label in Google Forms:</div>
+                        <input type="input" v-model="testValue">    
+                    </div>
+                    <br>
+                    <div v-html="getTestResultHtml()">
+                    </div>
+                    
+                </div>   
+                <br>
+                <br>     
+                <br>
+            </div>
+            
+            
         </div>
         
     </div>
@@ -37,7 +74,12 @@ export default {
             parseStateHtml: '',
             formModelId: '',
             fieldValues: {},
-            loadedFieldValues: {formModelId: null, fieldValues: {}}
+            loadedFieldValues: {formModelId: null, fieldValues: {}},
+
+            testField: {},
+            testValue: '',
+
+            enableTest: false
         }
     },
     watch: {
@@ -104,7 +146,8 @@ export default {
                 for (let field of formModel.fields) {
                     const formField = {
                         name: field.name,
-                        regexp: new RegExp(field.regexp, field.regexpFlags)
+                        regexp: field.regexp,
+                        regexpFlags: field.regexpFlags,
                     };
                     formFields.push(formField);
                 }
@@ -132,8 +175,23 @@ export default {
             await chromep.storage.local.set({
                 formModelJSON: this.formModelJSON,
                 formModelId: this.formModelId, 
-                fieldValues: this.fieldValues
+                fieldValues: this.fieldValues,
+
+                forInject: {formFields: this.formFields, fieldValues: this.fieldValues}
             });
+        },
+        getTestResultHtml() {
+            
+            if (! this.testField.regexp) {
+                return `<strong>Result</strong>: <span>select options above</span>`;
+            }
+            const regexp = new RegExp(this.testField.regexp, this.testField.regexpFlags);
+            if (regexp.test(this.testValue)) {
+                return `<strong>Result</strong>: <span style="color: green">matches</span>`;
+            } else {
+                return `<strong>Result</strong>: <span style="color: red">doesn't match</span>`;
+            }
+            
         }
         
     }
@@ -142,18 +200,18 @@ export default {
 
 <style lang="scss" scoped>
 .root {
-    width: 600px;
+    width: 700px;
     color: #444;
     font-family: Courier;
     padding-bottom: 0.5em;
-    font-size: 14px;
+    font-size: 11px;
 }
 
 textarea {
-    width: 570px;
-    min-width: 570px;
-    max-width: 570px;
-    height: 6rem;
+    width: 670px;
+    min-width: 670px;
+    max-width: 670px;
+    height: 5rem;
 }
 
 table {
@@ -183,5 +241,12 @@ div.body input {
     color: #999;
     text-align: center;
 }
+.test-interface-btn {
 
+    margin-bottom: 1rem;
+}
+.test-interface-btn-wrapper {
+    padding-top: 1rem;
+    text-align: right;
+}
 </style>
