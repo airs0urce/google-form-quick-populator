@@ -17,6 +17,7 @@
     "watch:dev": "cross-env HMR=true npm run build:dev -- --watch"
   },
   "dependencies": {
+    "chrome-promise": "^3.0.5",
     "vue": "^2.6.10"
   },
   "devDependencies": {

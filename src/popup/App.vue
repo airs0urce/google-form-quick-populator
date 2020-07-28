@@ -15,29 +15,49 @@
 
                 <div class="field-item" v-for="formField in formFields">
                     <div><strong>{{formField.name}}</strong></div>
-                    <div><input type="text" /></div>    
+                    <div><input v-model="fieldValues[formField.name]" type="text" /></div>    
                 </div>
-
             </div>    
+            <div class="note">
+                Fields will be auto-populated after you open Google Form.
+            </div>
         </div>
         
     </div>
 </template>
 
 <script>
-const formModelJSON = `{"fields": [{"name":"ETH Address","regexp":"(eth|ethereum)","regexpFlags": "i"},{"name":"Email","regexp":"(email|mail)","regexpFlags": "i"}]}`;
+import chromep from 'chrome-promise';
+
 
 export default {
     data: function () {
         return {
-            formModelJSON: formModelJSON,
-            parseStateHtml: ''
+            formModelJSON: '',
+            parseStateHtml: '',
+            formModelId: '',
+            fieldValues: {},
+            loadedFieldValues: {formModelId: null, fieldValues: {}}
         }
+    },
+    watch: {
+        fieldValues: {
+            handler(val) {
+                this.saveFormAndFieldValues();
+            },
+            deep: true
+        },
     },
     computed: {
         formFields: function() {
             const formFields = [];
             let formModel;
+
+            if ('' == this.formModelJSON) {
+                this.parseStateHtml = '';
+                return [];
+            }
+            
 
             try {
                 formModel = JSON.parse(this.formModelJSON);
@@ -45,7 +65,41 @@ export default {
                 this.parseStateHtml = 'validation: <span style="color:red;">' + e.message + '</span>';
                 return [];
             }
+
+            if (typeof formModel.id == 'undefined') {
+                this.parseStateHtml = 'validation: <span style="color:red;">No "id" field in form model</span>';
+                return [];
+            }
+
+            this.formModelId = formModel.id;
+
+            if (this.formModelId == this.loadedFieldValues.formModelId) {
+                this.fieldValues = {...this.loadedFieldValues.fieldValues}
+            } else {
+                this.fieldValues = {};
+            }
+
+            if (typeof formModel.fields == 'undefined') {
+                this.parseStateHtml = 'validation: <span style="color:red;">No "fields" array in form model</span>';
+                return [];
+            }
+            for (let field of formModel.fields) {
+                if (typeof field.name != 'string' ) {
+                    this.parseStateHtml = 'validation: <span style="color:red;">Incorrect "name" field format for element in "fields" array: ' + JSON.stringify(field) + '</span>';
+                    return [];
+                }
+                if (typeof field.regexp != 'string' ) {
+                    this.parseStateHtml = 'validation: <span style="color:red;">Incorrect "regexp" field format for element in "fields" array: ' + JSON.stringify(field) + '</span>';
+                    return [];
+                }
+                if (typeof field.regexpFlags != 'string' ) {
+                    this.parseStateHtml = 'validation: <span style="color:red;">Incorrect "regexpFlags" field format for element in "fields" array: ' + JSON.stringify(field) + '</span>';
+                    return [];
+                }
+
+            }
             
+
             try {
                 for (let field of formModel.fields) {
                     const formField = {
@@ -63,6 +117,25 @@ export default {
 
             return formFields;
         }
+    },
+    async mounted() {
+        const result = await chromep.storage.local.get(['formModelJSON', 'formModelId', 'fieldValues']);
+        if (result.fieldValues) {
+            this.formModelJSON = result.formModelJSON;
+            this.loadedFieldValues.formModelId = result.formModelId;
+            this.loadedFieldValues.fieldValues = result.fieldValues;
+        }
+
+    },
+    methods: {
+        saveFormAndFieldValues: async function() {
+            await chromep.storage.local.set({
+                formModelJSON: this.formModelJSON,
+                formModelId: this.formModelId, 
+                fieldValues: this.fieldValues
+            });
+        }
+        
     }
 }
 </script>
@@ -105,6 +178,10 @@ div.body input {
 }
 .field-item {
     margin-bottom: 0.7em;
+}
+.note {
+    color: #999;
+    text-align: center;
 }
 
 </style>

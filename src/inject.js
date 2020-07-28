@@ -1,3 +1,15 @@
-alert('injected 1');
+// alert('injected 1');
 
-document.querySelector('input[type=text]').value = 'test';
+var input = document.querySelector('input[type=text]');
+
+setTimeout(() => {
+    input.value = 'test';
+    input.dispatchEvent(new Event('input', { 'bubbles': true }));
+}, 50);
+
+
+
+
+
+
+
