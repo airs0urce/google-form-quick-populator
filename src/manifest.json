@@ -11,9 +11,21 @@
     "default_title": "google-form-quick-pupulator",
     "default_popup": "popup/popup.html"
   },
+  "permissions": [
+    "storage",
+    "https://docs.google.com/*"
+  ],
   "background": {
     "scripts": [
       "background.js"
-    ]
+    ],
+    "persistent": false
   },
+  "content_scripts": [
+    {
+      "matches": ["https://docs.google.com/*"],
+      "js": ["inject.js"],
+      "run_at": "document_end"
+    }
+  ]
 }

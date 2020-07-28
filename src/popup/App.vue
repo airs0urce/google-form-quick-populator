@@ -1,5 +1,7 @@
 <template >
     <div class="root">
+        <h1>Google Forms Populator</h1>
+        <hr>
         <h2>Form model</h2>
         <div class="body">
             <label>Paste form model code here:</label>
@@ -7,15 +9,18 @@
             <div v-html="parseStateHtml"></div>
         </div>
         
-        <h2>Field values</h2>
-        <div class="body">
+        <div v-if="formFields.length > 0">
+            <h2>Enter field values</h2>
+            <div class="body">
 
-            <div class="field-item" v-for="formField in formFields">
-                <div><strong>{{formField.name}}</strong></div>
-                <div><input type="text" /></div>    
-            </div>
+                <div class="field-item" v-for="formField in formFields">
+                    <div><strong>{{formField.name}}</strong></div>
+                    <div><input type="text" /></div>    
+                </div>
 
+            </div>    
         </div>
+        
     </div>
 </template>
 
@@ -37,17 +42,25 @@ export default {
             try {
                 formModel = JSON.parse(this.formModelJSON);
             } catch (e) {
-                this.parseStateHtml = 'parsing: <span style="color:red;">' + e.message + '</span>';
+                this.parseStateHtml = 'validation: <span style="color:red;">' + e.message + '</span>';
                 return [];
             }
-            this.parseStateHtml = 'parsing: <span style="color:green;">valid</span>';
-
             
-            for (let field of formModel.fields) {
-                const formField = field;
-
-                formFields.push(formField);
+            try {
+                for (let field of formModel.fields) {
+                    const formField = {
+                        name: field.name,
+                        regexp: new RegExp(field.regexp, field.regexpFlags)
+                    };
+                    formFields.push(formField);
+                }
+            } catch (e) {
+                this.parseStateHtml = 'validation: <span style="color:red;">' + e.message + '</span>';
+                return [];
             }
+
+            this.parseStateHtml = 'validation: <span style="color:green;">valid</span>';
+
             return formFields;
         }
     }
