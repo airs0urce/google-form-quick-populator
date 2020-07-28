@@ -1,6 +1,7 @@
 <template >
     <div class="root">
-        <h1>Google Forms Quick Populator</h1>
+        <h1 style="white-space: nowrap;">Google Forms Quick Populator. <input type="checkbox" v-model="enableAutopopulation" name="" id="enable-plugin"><label for="enable-plugin">Enable autopopulation</label></h1>
+
         <hr>
         <h2>Form model JSON 
             <a href="#json-model-help" @click="showExplanation = !showExplanation"><span v-if="showExplanation">(ok)</span><span v-if="!showExplanation">(what?)</span></a>
@@ -140,7 +141,9 @@ export default {
 
             enableTest: false,
 
-            showExplanation: false
+            showExplanation: false,
+
+            enableAutopopulation: true
         }
     },
     watch: {
@@ -150,6 +153,13 @@ export default {
             },
             deep: true
         },
+        enableAutopopulation: {
+            async handler(val) {
+                await chromep.storage.local.set({
+                    enableAutopopulation: this.enableAutopopulation
+                })
+            },
+        }
     },
     computed: {
         formFields: function() {
@@ -223,11 +233,12 @@ export default {
         }
     },
     async mounted() {
-        const result = await chromep.storage.local.get(['formModelJSON', 'formModelId', 'fieldValues']);
+        const result = await chromep.storage.local.get(['enableAutopopulation', 'formModelJSON', 'formModelId', 'fieldValues']);
         if (result.fieldValues) {
             this.formModelJSON = result.formModelJSON;
             this.loadedFieldValues.formModelId = result.formModelId;
             this.loadedFieldValues.fieldValues = result.fieldValues;
+            this.enableAutopopulation = (result.enableAutopopulation == undefined ? true: result.enableAutopopulation);
         }
     },
     methods: {
@@ -311,5 +322,9 @@ div.body input {
 .test-interface-btn-wrapper {
     padding-top: 1rem;
     text-align: right;
+}
+[for="enable-plugin"] {
+    font-size: 0.7em;
+    user-select: none;
 }
 </style>

@@ -4,7 +4,14 @@ function getFieldValue(name) {
     return (fieldValues[name] ? fieldValues[name]: '');
 }
 
-chrome.storage.local.get(['forInject'], function(result) {    
+chrome.storage.local.get(['enableAutopopulation', 'forInject'], function(result) {    
+
+    if (undefined == result.enableAutopopulation) {
+        result.enableAutopopulation = true;
+    }
+    if (!result.enableAutopopulation) {
+        return;
+    }
     fieldValues = result.forInject.fieldValues;
 
     const pasteRules = [];
