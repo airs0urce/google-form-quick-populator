@@ -2,62 +2,120 @@
     <div class="root">
         <h1>Google Forms Quick Populator</h1>
         <hr>
-        <h2>Form model JSON</h2>
-        <div class="body">
-            <label>Paste form model JSON here:</label>
-            <div><textarea v-model="formModelJSON"></textarea></div>
-            <div v-html="parseStateHtml"></div>
+        <h2>Form model JSON 
+            <a href="#json-model-help" @click="showExplanation = !showExplanation"><span v-if="showExplanation">(ok)</span><span v-if="!showExplanation">(what?)</span></a>
+        </h2>
+        <div v-if="showExplanation">
+            <div>Form Model JSON defines regular expressions which matches titles for fields in Google Forms.</div>
+            
+            <div>Example Google Form: 
+                <a href="#" @click="openLink('https://forms.gle/Jd78vkCsfPtAmE7c7')">https://forms.gle/Jd78vkCsfPtAmE7c7</a>
+            </div>
+            <div>Example From Model JSON: </div>
+            <pre>
+{
+    "id":"EQUUS",
+    "fields": [
+        {
+            "regexp":"(\\beth\\b|\\bethereum\\b)",
+            "regexpFlags": "i",
+            "name":"ETH Address",
+        },
+        {
+            "regexp":"e?mail",
+            "regexpFlags": "i",
+            "name":"Email",
+        },
+        {
+            "regexp":"(allocation|amount)",
+            "regexpFlags": "i",
+            "name":"Allocation",
+        },
+        {
+            "regexp":"(discord)",
+            "regexpFlags": "i",
+            "name":"Discord name",
+        }
+    ]
+}
+<br>
+<strong>Description:</strong>
+<strong>id</strong> - Id of Form Model. Any string.
+<strong>fields.regexp</strong> - Regular expression. Used to construct "new RegExp([regexp], [regexpFlags])"
+<strong>fields.regexpFlags</strong> - Regular expression flags. Used to construct "new RegExp([regexp], [regexpFlags])"
+<strong>fields.name</strong> - Name for matched field. Used to populate Paste Values in this extension.
+
+Good service for testing regular expressions: <a href="#" @click="openLink('https://regexr.com/')">https://regexr.com/</a>
+
+<strong>This is how we run match check using config above:</strong>
+<code>
+const regexp = new RegExp([regexp], [regexpFlags]);
+if (regexp.test([field title parsed from Google Form])) {
+    alert('Match found')
+} else {
+    alert('Match not found')
+}
+</code>
+
+            </pre>
         </div>
-        
-        <div v-if="formFields.length > 0">
-            <h2>Enter field values</h2>
+        <div v-if="!showExplanation">
             <div class="body">
-
-                <div class="field-item" v-for="formField in formFields">
-                    <div><strong>{{formField.name}}</strong></div>
-                    <div><input v-model="fieldValues[formField.name]" type="text" /></div>    
-                </div>
-            </div>    
-            <div class="note">
-                Fields will be auto-populated after you open Google Form.
-            </div>
-            <div class="note">
-                (Right now we populate only input and textarea fields. WARNING: It doesn't send form automatically)
-            </div>
-
-            <div class="test-interface-btn-wrapper">
-                <button class="test-interface-btn" v-if="!enableTest" @click="enableTest = true">Show test interface</button>
-                <button class="test-interface-btn" v-if="enableTest" @click="enableTest = false">Hide test interface</button>    
+                <label>Paste Form Model JSON here:</label>
+                <div><textarea v-model="formModelJSON"></textarea></div>
+                <div v-html="parseStateHtml"></div>
             </div>
             
-
-            <div v-if="enableTest">
-                <h2>Test label match</h2>
+            <div v-if="formFields.length > 0">
+                <h2>Enter Paste Values</h2>
                 <div class="body">
-                    <div>
-                        Here you can select field and write text that you think will be in Google Form near field which you need to populate.
+
+                    <div class="field-item" v-for="formField in formFields">
+                        <div><strong>{{formField.name}}</strong></div>
+                        <div><input v-model="fieldValues[formField.name]" type="text" /></div>    
                     </div>
-                    <div>
-                        <div>Field definition from form model:</div>
-                        <select v-model="testField">
-                            <option v-for="formField in formFields" :value="formField">{{formField.name}}</option>
-                        </select>
-                    </div>
-                    <div>
-                        <div>Field label in Google Forms:</div>
-                        <input type="input" v-model="testValue">    
-                    </div>
+                </div>    
+                <div class="note">
+                    Fields will be auto-populated after you open Google Form.
+                </div>
+                <div class="note">
+                    (Right now we populate only input and textarea fields. WARNING: It doesn't send form automatically)
+                </div>
+
+                <div class="test-interface-btn-wrapper">
+                    <button class="test-interface-btn" v-if="!enableTest" @click="enableTest = true">Show test interface</button>
+                    <button class="test-interface-btn" v-if="enableTest" @click="enableTest = false">Hide test interface</button>    
+                </div>
+                
+
+                <div v-if="enableTest">
+                    <h2>Test label match</h2>
+                    <div class="body">
+                        <div>
+                            Here you can select field and write text that you think will be in Google Form near field which you need to populate.
+                        </div>
+                        <div>
+                            <div>Field definition from form model:</div>
+                            <select v-model="testField">
+                                <option v-for="formField in formFields" :value="formField">{{formField.name}}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div>Field label in Google Forms:</div>
+                            <input type="input" v-model="testValue">    
+                        </div>
+                        <br>
+                        <div v-html="getTestResultHtml()">
+                        </div>
+                        
+                    </div>   
                     <br>
-                    <div v-html="getTestResultHtml()">
-                    </div>
-                    
-                </div>   
-                <br>
-                <br>     
-                <br>
+                    <br>     
+                    <br>
+                </div>
+                
+                
             </div>
-            
-            
         </div>
         
     </div>
@@ -65,6 +123,7 @@
 
 <script>
 import chromep from 'chrome-promise';
+
 
 
 export default {
@@ -79,7 +138,9 @@ export default {
             testField: {},
             testValue: '',
 
-            enableTest: false
+            enableTest: false,
+
+            showExplanation: false
         }
     },
     watch: {
@@ -168,7 +229,6 @@ export default {
             this.loadedFieldValues.formModelId = result.formModelId;
             this.loadedFieldValues.fieldValues = result.fieldValues;
         }
-
     },
     methods: {
         saveFormAndFieldValues: async function() {
@@ -192,6 +252,9 @@ export default {
                 return `<strong>Result</strong>: <span style="color: red">doesn't match</span>`;
             }
             
+        },
+        openLink(url) {
+            chrome.tabs.create({url: url});
         }
         
     }

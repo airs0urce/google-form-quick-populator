@@ -1,7 +1,7 @@
 
 var fieldValues = {};
 function getFieldValue(name) {
-    return fieldValues[name];
+    return (fieldValues[name] ? fieldValues[name]: '');
 }
 
 chrome.storage.local.get(['forInject'], function(result) {    
