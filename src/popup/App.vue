@@ -1,6 +1,7 @@
 <template >
     <div class="root">
-        <h1 style="white-space: nowrap;">Google Forms Quick Populator. <input type="checkbox" v-model="enableAutopopulation" name="" id="enable-plugin"><label for="enable-plugin">Enable autopopulation</label></h1>
+        <h1 style="white-space: nowrap;">Google Forms Quick Populator. <input type="checkbox" v-model="enableAutopopulation" name="" id="enable-plugin"><label for="enable-plugin">Enable form auto-population</label></h1>
+        
 
         <hr>
         <h2>Form model JSON 
@@ -73,15 +74,46 @@ if (regexp.test([field title parsed from Google Form])) {
 
                     <div class="field-item" v-for="formField in formFields">
                         <div><strong>{{formField.name}}</strong></div>
-                        <div><input v-model="fieldValues[formField.name]" type="text" /></div>    
+                        <div><input v-model="pasteValues[formField.name]" type="text" /></div>    
                     </div>
                 </div>    
-                <div class="note">
-                    Fields will be auto-populated after you open Google Form.
+                
+                <div class="additional-options">
+                    <input type="checkbox" v-model="enableAutoSubmit" name="" id="enable-submit"><label for="enable-submit">Enable form auto-submit <span v-if="enableAutoSubmit && !enableAutopopulation">(<span style="color: red;">WARNING!</span>: It will not work until you enable form auto-population)</span></label>
+                    <br>
+                    <div class="left-margin" :class="{'disabled': !enableAutoSubmit}">
+                        <div>
+                            <input type="checkbox" :disabled="!enableAutoSubmit" v-model="autoSubmitOnlyIfAllFieldsFound" name="" id="enable-submit-full"><label for="enable-submit-full">Only if we were able to find and paste all fields you set in Paste Values section (fields: {{getAllFieldsString()}})
+                            </label>
+                        </div>
+                        <div>
+                            <input type="checkbox" :disabled="!enableAutoSubmit" v-model="autoSubmitOnlyIfNoEmptyFieldLeft" name="" id="enable-submit-no-fields-left"><label for="enable-submit-no-fields-left">Only
+                                if no more empty fields left in form
+                            </label>
+                        </div>
+
+                        <div>
+
+                            <input type="checkbox" :disabled="!enableAutoSubmit" v-model="autoSubmitOnlyIfNoCheckboxOrRadio" id="enable-submit-no-checkbox"><label for="enable-submit-no-checkbox">Only 
+                                if there no checkbox/radio button/dropdown (as this extension doesn't work with them right now and you may be need to change defalut value)
+                            </label>
+                        </div>
+                        
+                    </div>
+                    
                 </div>
-                <div class="note">
-                    (Right now we populate only input and textarea fields. WARNING: It doesn't send form automatically)
-                </div>
+
+                <!-- <div class="note">
+                    <div>
+                        <span v-if="enableAutopopulation">Fields will be auto-populated after you open Google Form</span>
+                        <span v-if="!enableAutopopulation">Fields WILL NOT be populated, because you disabled form auto-population.</span>
+                    </div>
+                    <div>
+                        <span v-if="enableAutoSubmit">After that we will submit form automatically</span>
+                        <span v-if="enableAutoSubmit && autoSubmitOnlyIfAllFieldsFound">, but only in case if we found and populated all these fields: {{getAllFieldsString()}}</span>
+                        <span v-if="autoSubmitOnlyIfNoEmptyFieldLeft">and only if no empty fields left in form</span>
+                    </div>
+                </div> -->
 
                 <div class="test-interface-btn-wrapper">
                     <button class="test-interface-btn" v-if="!enableTest" @click="enableTest = true">Show test interface</button>
@@ -117,8 +149,18 @@ if (regexp.test([field title parsed from Google Form])) {
                 
                 
             </div>
+            
         </div>
         
+        <div v-if="lastPopulatedFormData">
+            <strong>
+            Last populated form data:<br/>
+            {{lastPopulatedFormData}}    
+            </strong>
+            <br/>
+        </div>
+        
+
     </div>
 </template>
 
@@ -133,8 +175,8 @@ export default {
             formModelJSON: '',
             parseStateHtml: '',
             formModelId: '',
-            fieldValues: {},
-            loadedFieldValues: {formModelId: null, fieldValues: {}},
+            pasteValues: {},
+            loadedPasteValues: {formModelId: null, pasteValues: {}},
 
             testField: {},
             testValue: '',
@@ -143,23 +185,37 @@ export default {
 
             showExplanation: false,
 
-            enableAutopopulation: true
+            enableAutopopulation: true,
+            enableAutoSubmit: true,
+            autoSubmitOnlyIfAllFieldsFound: true,
+            autoSubmitOnlyIfNoEmptyFieldLeft: true,
+            autoSubmitOnlyIfNoCheckboxOrRadio: true,
+            lastPopulatedFormData: null
         }
     },
     watch: {
-        fieldValues: {
+        pasteValues: {
             handler(val) {
-                this.saveFormAndFieldValues();
+                this.saveSettings();
             },
             deep: true
         },
-        enableAutopopulation: {
-            async handler(val) {
-                await chromep.storage.local.set({
-                    enableAutopopulation: this.enableAutopopulation
-                })
-            },
+        enableAutopopulation() {
+            this.saveSettings();
+        },
+        enableAutoSubmit() {
+            this.saveSettings();
+        },
+        autoSubmitOnlyIfNoEmptyFieldLeft() {
+            this.saveSettings();
+        },
+        autoSubmitOnlyIfAllFieldsFound() {
+            this.saveSettings();
+        },
+        autoSubmitOnlyIfNoCheckboxOrRadio() {
+            this.saveSettings();
         }
+         
     },
     computed: {
         formFields: function() {
@@ -186,10 +242,10 @@ export default {
 
             this.formModelId = formModel.id;
 
-            if (this.formModelId == this.loadedFieldValues.formModelId) {
-                this.fieldValues = {...this.loadedFieldValues.fieldValues}
+            if (this.formModelId == this.loadedPasteValues.formModelId) {
+                this.pasteValues = {...this.loadedPasteValues.pasteValues}
             } else {
-                this.fieldValues = {};
+                this.pasteValues = {};
             }
 
             if (typeof formModel.fields == 'undefined') {
@@ -233,23 +289,56 @@ export default {
         }
     },
     async mounted() {
-        const result = await chromep.storage.local.get(['enableAutopopulation', 'formModelJSON', 'formModelId', 'fieldValues']);
-        if (result.fieldValues) {
+        const result = await chromep.storage.local.get([
+            'enableAutoSubmit', 
+            'enableAutopopulation', 
+            'formModelJSON', 
+            'formModelId', 
+            'pasteValues',
+            'autoSubmitOnlyIfAllFieldsFound',
+            'autoSubmitOnlyIfNoEmptyFieldLeft',
+            'autoSubmitOnlyIfNoCheckboxOrRadio',
+            'lastPopulatedFormData',
+        ]);
+
+        if (result.pasteValues) {
             this.formModelJSON = result.formModelJSON;
-            this.loadedFieldValues.formModelId = result.formModelId;
-            this.loadedFieldValues.fieldValues = result.fieldValues;
-            this.enableAutopopulation = (result.enableAutopopulation == undefined ? true: result.enableAutopopulation);
+            this.loadedPasteValues.formModelId = result.formModelId;
+            this.loadedPasteValues.pasteValues = result.pasteValues;
+            this.enableAutopopulation = (result.enableAutopopulation !== undefined ? result.enableAutopopulation: this.enableAutopopulation);
+            this.enableAutoSubmit = (result.enableAutoSubmit !== undefined ? result.enableAutoSubmit: this.enableAutoSubmit);
+            this.autoSubmitOnlyIfAllFieldsFound = (result.autoSubmitOnlyIfAllFieldsFound !== undefined ? result.autoSubmitOnlyIfAllFieldsFound: this.autoSubmitOnlyIfAllFieldsFound);
+            this.autoSubmitOnlyIfNoEmptyFieldLeft = (result.autoSubmitOnlyIfNoEmptyFieldLeft !== undefined ? result.autoSubmitOnlyIfNoEmptyFieldLeft: this.autoSubmitOnlyIfNoEmptyFieldLeft);
+            this.autoSubmitOnlyIfNoCheckboxOrRadio = (result.autoSubmitOnlyIfNoCheckboxOrRadio !== undefined ? result.autoSubmitOnlyIfNoCheckboxOrRadio: this.autoSubmitOnlyIfNoCheckboxOrRadio);
+        }
+
+        if (result.lastPopulatedFormData) {
+            this.lastPopulatedFormData = result.lastPopulatedFormData;
         }
     },
     methods: {
-        saveFormAndFieldValues: async function() {
+        saveSettings: async function() {
+            let nonEmptyPasteValues = {...this.pasteValues};
+            for (let fieldKey in nonEmptyPasteValues) {
+                if (nonEmptyPasteValues[fieldKey].trim() === '') {
+                    delete nonEmptyPasteValues[fieldKey];
+                }
+            }
+
             await chromep.storage.local.set({
                 formModelJSON: this.formModelJSON,
                 formModelId: this.formModelId, 
-                fieldValues: this.fieldValues,
+                pasteValues: this.pasteValues,
 
-                forInject: {formFields: this.formFields, fieldValues: this.fieldValues}
+                forInject: {formFields: this.formFields, pasteValues: nonEmptyPasteValues},
+
+                enableAutopopulation: this.enableAutopopulation,
+                enableAutoSubmit: this.enableAutoSubmit,
+                autoSubmitOnlyIfAllFieldsFound: this.autoSubmitOnlyIfAllFieldsFound,
+                autoSubmitOnlyIfNoEmptyFieldLeft: this.autoSubmitOnlyIfNoEmptyFieldLeft,
+                autoSubmitOnlyIfNoCheckboxOrRadio: this.autoSubmitOnlyIfNoCheckboxOrRadio,
             });
+
         },
         getTestResultHtml() {
             
@@ -266,6 +355,19 @@ export default {
         },
         openLink(url) {
             chrome.tabs.create({url: url});
+        },
+        getAllFieldsString() {
+            if (this.pasteValues) {
+                let pastes = Object.keys(this.pasteValues);
+                pastes = pastes.filter((field) => { 
+                    return this.pasteValues[field].trim() != '';
+                });
+                if (pastes.length > 0) {
+                    return '"' + pastes.join('", "') + '"';
+                    return ;
+                }
+            }
+            return '';
         }
         
     }
@@ -276,12 +378,13 @@ export default {
 .root {
     width: 700px;
     color: #444;
-    font-family: Courier;
+    font-family: Verdana, Arial;
     padding-bottom: 0.5em;
     font-size: 11px;
 }
 
 textarea {
+    font-family: monospace;
     width: 670px;
     min-width: 670px;
     max-width: 670px;
@@ -323,8 +426,19 @@ div.body input {
     padding-top: 1rem;
     text-align: right;
 }
-[for="enable-plugin"] {
-    font-size: 0.7em;
+h1, h2, h3 {
     user-select: none;
+}
+[for="enable-plugin"] {
+    font-size: 0.6em;
+}
+.left-margin {
+    margin-left: 1.2rem;
+}
+.additional-options {
+    font-size: 1.1em;
+}
+.disabled {
+    color: #777;
 }
 </style>
